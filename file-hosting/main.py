@@ -9,8 +9,6 @@ from flask import (
     redirect,
     url_for,
     send_file,
-    abort,
-    g,
 )
 from pymongo import MongoClient
 from gridfs import GridFS
@@ -38,26 +36,31 @@ def upload_file():
             return redirect(request.url)
         file = request.files["file"]
         binary_file = file.stream.read()
-        fs.put(binary_file, filename=file.filename, content_type=file.content_type)
+        fs.put(
+            binary_file,
+            filename=file.filename,
+            content_type=file.content_type,
+        )
+        flash(f"File uploaded {file.filename}")
         return redirect(url_for("index"))
     else:
         return render_template("upload.html")
 
 
-@app.route("/download/<file_name>")
-def download_file(file_name):
-    file = fs.find_one({"filename": file_name})
+@app.route("/download/<file_id>")
+def download_file(file_id):
+    file = fs.get(ObjectId(file_id))
     return send_file(
         BytesIO(file.read()),
         as_attachment=True,
         mimetype=file.content_type,
-        download_name=file_name,
+        download_name=file.name,
     )
 
 
 @app.route("/delete/<file_id>", methods=["POST"])
 def delete_file(file_id):
+    file = fs.get(ObjectId(file_id))
+    flash(f"File deleted {file.name}")
     fs.delete(ObjectId(file_id))
-    if fs.exists(ObjectId(file_id)):
-        flash(f"File deleted {file_id}")
     return redirect(url_for("index"))
