@@ -1,4 +1,5 @@
 from io import BytesIO
+from secrets import token_urlsafe
 
 from bson import ObjectId
 from flask import (
@@ -34,12 +35,16 @@ def upload_file():
         if "file" not in request.files:
             flash("No file part")
             return redirect(request.url)
+        if "password" not in request.form:
+            flash("No password field")
+            return redirect(request.url)
         file = request.files["file"]
         binary_file = file.stream.read()
         fs.put(
             binary_file,
             filename=file.filename,
             content_type=file.content_type,
+            password=request.form["password"],
         )
         flash(f"File uploaded {file.filename}")
         return redirect(url_for("index"))
@@ -47,15 +52,21 @@ def upload_file():
         return render_template("upload.html")
 
 
-@app.route("/download/<file_id>")
+@app.route("/download/<file_id>", methods=["POST"])
 def download_file(file_id):
-    file = fs.get(ObjectId(file_id))
-    return send_file(
-        BytesIO(file.read()),
-        as_attachment=True,
-        mimetype=file.content_type,
-        download_name=file.name,
-    )
+    if request.method == "POST":
+        file = fs.find_one(
+            {"_id": ObjectId(file_id), "password": request.form["password"]}
+        )
+        if file is not None:
+            return send_file(
+                BytesIO(file.read()),
+                as_attachment=True,
+                mimetype=file.content_type,
+                download_name=file.name,
+            )
+    flash("Password incorrect or file not found")
+    return redirect(url_for("index"))
 
 
 @app.route("/delete/<file_id>", methods=["POST"])
