@@ -1,0 +1,20 @@
+services:
+  db:
+    image: mongodb/mongodb-atlas-local
+    ports:
+      - "27017:27017"
+    volumes:
+      - data:/data/db
+      - config:/data/configdb
+  api:
+    build:
+      dockerfile: ./Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./file-hosting:/app
+    command: flask --app main run --host=0.0.0.0 --debug
+
+volumes:
+  data:
+  config:
